@@ -28,3 +28,5 @@ def cosine_color(iteration):
 	b = int ( abs( math.cos(iteration)*math.sin(iteration) ) * 255)
 
 	return (r,g,b)
+
+#stronzo
