@@ -1,0 +1,17 @@
+	#precalculations
+	DENOMIN_X = dimension / float(x_max - x_min)
+	DENOMIN_Y = dimension / float(y_max - y_min)
+	 
+	for x in xrange(dimension):
+		c_re = x_min + x / DENOMIN_X	#la parte reale di c.
+										#i parametri sono per centrare l'immagine.
+		for y in xrange(dimension):
+			c_im = y_max - y / DENOMIN_Y	#la parte immaginaria di c
+			c = complex(c_re, c_im) #rende complesso c
+			z = 0
+			
+			for i in xrange(T):
+				z = z**exp + c #la forumla ricorsiva
+				if abs(z) >= 2: #se divergente
+					draw.point((x,y), fill = clz.cosine_color(i)) #colora in base a divergenza
+					break	#sennò lascialo bianco (formerà la forma interna del frattale)

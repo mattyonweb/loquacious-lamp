@@ -7,6 +7,7 @@ import colorazioni as clz
 dimension = 400 # dimensioni file output in px
 T = 300 #max numero di iterazioni per la divergenza
 colors = [] #dizionario dei colori; cambia ad ogni nuovo avvio
+E = 2
 
 def mandela(draw, exp = 2, coordinates = (-2.5, 1.5, -2, 2) ): 
 	''' Calcola l'appartenenza di ogni pizzel all'insieme di mandelbrot
@@ -20,8 +21,13 @@ def mandela(draw, exp = 2, coordinates = (-2.5, 1.5, -2, 2) ):
 
 	dove x_min, max ecc sono i punti estremi del sistema di riferimento
 	cartesiano, di norma x=(-2.5, 1.5) e y=(-2,2).
-	'''
 
+	L'ottimizzazione del processo avviene solo se l'esponente di Z è 2, e
+	consiste nell'escludere a priori i calcoli su punti che già si sa che stanno
+	nell'area interna del frattale.
+	https://en.wikipedia.org/wiki/Mandelbrot_set#Cardioid_.2F_bulb_checking
+	'''
+	#estrae le coordinate massime e minime sul piano complesso
 	x_min = coordinates[0]
 	x_max = coordinates[1]
 	y_min = coordinates[2]
@@ -32,45 +38,46 @@ def mandela(draw, exp = 2, coordinates = (-2.5, 1.5, -2, 2) ):
 	#precalculations
 	DENOMIN_X = dimension / float(x_max - x_min)
 	DENOMIN_Y = dimension / float(y_max - y_min)
-	 
-	for x in xrange(dimension):
-		c_re = x_min + x / DENOMIN_X	#la parte reale di c.
-										#i parametri sono per centrare l'immagine.
-		for y in xrange(dimension):
-			c_im = y_max - y / DENOMIN_Y	#la parte immaginaria di c
 
-			q = (c_re - 0.25)**2 + c_im**2
-			if not (q**2 + q*(c_re - 0.25) < 0.25 * c_im**2):
-				c = complex(c_re, c_im) #rende complesso c
+	#booleans
+	STANDARD = (exp == 2) #se l'esponente è 2, il processo si può ottimizzare
+	GO_ON = True #se è possibile saltare il calcolo di alcuni punti
+
+	for x in xrange(dimension):
+		
+		#la parte reale di c.
+		c_re = x_min + x / DENOMIN_X
+
+		for y in xrange(dimension):
+			
+			#la parte immaginaria di c
+			c_im = y_max - y / DENOMIN_Y
+
+			#metodo per ottimizzare (non fa calcolare i punti del cardioide)
+			#ottimizza solo se e==2 con la formula qui sotto, altrimenti
+			#fa passare tutto normalmente
+			if STANDARD:
+				q = (c_re - 0.25)**2 + c_im**2 
+				GO_ON = not(q**2 + q*(c_re - 0.25) < 0.25 * c_im**2)
+			else:
+				GO_ON = True
+
+			if GO_ON:
+				#rende complesso le componenti di c
+				c = complex(c_re, c_im)
 				z = 0
 				
 				for i in xrange(T):
-					z = z**exp + c #la forumla ricorsiva
-					if abs(z) >= 2: #se divergente
-						draw.point((x,y), fill = clz.cosine_color(i)) #colora in base a divergenza
-						break	#sennò lascialo bianco (formerà la forma interna del frattale)
+					#la forumla ricorsiva
+					z = z**exp + c
+
+					#se divergente, colora di conseguenza
+					if abs(z) >= 2:
+						#draw.point((x,y), fill = clz.log_color(i, T))
+						break
+						
 	print time.time() - start
 
-	start = time.time()
-
-	#precalculations
-	DENOMIN_X = dimension / float(x_max - x_min)
-	DENOMIN_Y = dimension / float(y_max - y_min)
-	 
-	for x in xrange(dimension):
-		c_re = x_min + x / DENOMIN_X	#la parte reale di c.
-										#i parametri sono per centrare l'immagine.
-		for y in xrange(dimension):
-			c_im = y_max - y / DENOMIN_Y	#la parte immaginaria di c
-			c = complex(c_re, c_im) #rende complesso c
-			z = 0
-			
-			for i in xrange(T):
-				z = z**exp + c #la forumla ricorsiva
-				if abs(z) >= 2: #se divergente
-					draw.point((x,y), fill = clz.cosine_color(i)) #colora in base a divergenza
-					break	#sennò lascialo bianco (formerà la forma interna del frattale)
-	print time.time() - start
 
 	
 def julia(draw, exp = 2):
@@ -113,27 +120,6 @@ def julia(draw, exp = 2):
 				#sennò lascialo bianco (formerà la forma interna del frattale)
 	print time.time()-start, "\n\nNUOVO FRATTALE:"
 
-def gen_cols(colorblind = False):
-	''' genera la lista di colori simili. '''
-	global colors
-	colors = []
-	r = randint(0,255)
-	g = randint(0,255)
-	b = randint(0,255)
-	if not colorblind:
-		for _ in range(20):
-			colors.append((r,g,b))
-			r += randint(-25,20) #per fare un cambiamento graduale di colore
-			g += randint(-25,20)
-			b += randint(-25,20)
-	else: #colori orribili
-		list = [(0,0,255),(0,255,255),(0,255,0),(255,255,0),(255,0,0),(255,0,255)]
-		for col in list:
-			colors.append(col)
-					
-def color(valeu):
-	'''ritorna sempre nel medesimo ordine un colore . '''
-	return colors[valeu%len(colors)]
 
 def prompt():
 	''' gestore delle funzioni '''
@@ -146,15 +132,11 @@ def prompt():
 	
 	while True:
 		#manca la gestione degli errori ma vabe... confido in voi
-		dimension = int(raw_input("dimensions: "))
+		#dimension = int(raw_input("dimensions: "))
 		is_mandel = raw_input("(m)andelbrot or (j)ulia: ")
 		starting_exp = int(raw_input("starting e: "))	#per generare più immagini
 														#con exp diversi.
 		final_exp = int(raw_input("final e: "))
-		x_min = float(raw_input("x_min: "))
-		x_max = float(raw_input("x_max: "))
-		y_min = float(raw_input("y_min: "))
-		y_max = float(raw_input("y_max: "))
 		
 		if is_mandel == "m":
 			mandel = True
@@ -175,13 +157,10 @@ def prompt():
 					
 #prompt()
 
-class StaticIbnizer(cmd.Cmd):
-	""" Ibnizer!!! Matt """
-	cmd.Cmd.intro = "Slow ibniz. MC 2015"
+class Fractaland(cmd.Cmd):
+	""" Fractaland """
+	cmd.Cmd.intro = "Fractal image render. MC 2016"
 
-	#def __init__(self):
-	#	gen_cols()
-		
 	def emptyline(self):
 		return
 		
@@ -200,28 +179,37 @@ class StaticIbnizer(cmd.Cmd):
 
 		dimension = int(value)
 
+
+	def do_exponent(self, exp):
+		global E
+		
+		E = int(exp)
+		
+
 	def do_mandela(self, args):
 		im = Image.new("RGB", (dimension,dimension), "white")
-		draw = ImageDraw.Draw(im) #necessari per disegnare un'immagine
+		draw = ImageDraw.Draw(im)
 
 		values = args.split(" ")
-		print values
-		
-		if values != []:
+
+		# se non sono passati argomenti, lascia quelli di default
+		if values != [""]:
 			tokens = list()
 			
 			for parameter in values:
 				tokens.append(float(parameter))
 			
-			mandela(draw, 2, tokens)
+			mandela(draw, E, tokens)
 		else:
-			mandela(draw, 2)
-		im.save("mandelbrot_exp" + str(2) + ".jpg") 
+			mandela(draw, E)
+			
+		im.save("mandelbrot_exp" + str(E) + ".jpg")
+
 		
 	def do_quit(self, *args):
 		''' quit
 		quit. '''
 		return True
 
-StaticIbnizer().cmdloop()
+Fractaland().cmdloop()
 
