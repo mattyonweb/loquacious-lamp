@@ -7,7 +7,7 @@ import colorazioni as clz
 dimension = 400 # dimensioni file output in px
 T = 300 #max numero di iterazioni per la divergenza
 colors = [] #dizionario dei colori; cambia ad ogni nuovo avvio
-E = 2
+E = 2 #esponente
 
 def mandela(draw, exp = 2, coordinates = (-2.5, 1.5, -2, 2) ): 
 	''' Calcola l'appartenenza di ogni pizzel all'insieme di mandelbrot
@@ -73,89 +73,52 @@ def mandela(draw, exp = 2, coordinates = (-2.5, 1.5, -2, 2) ):
 
 					#se divergente, colora di conseguenza
 					if abs(z) >= 2:
-						#draw.point((x,y), fill = clz.log_color(i, T))
+						draw.point((x,y), fill = clz.log_color(i, T))
 						break
 						
 	print time.time() - start
 
 
 	
-def julia(draw, exp = 2):
+def julia(draw, exp = 2, coordinates = (-2.0, 2.0, -2, 2) ):
 	''' julia set. disponibili presets... '''
 	
 	presets = {
 	"wandering star" : (-0.7,-0.3),
 	"double star" : (0.4,0.1),
 	"explosion in the sky" : (0.3,0.8) }
-	
-	real_c = raw_input("\nJULIA\ndigit real c or (p) to see presets: ")
-	if real_c == "p":
-		print "*********PRESETS*********" #stampa i presets
-		for el in presets:
-			print el, presets[el]
-		print "*********PRESETS*********"
-		preset = raw_input("digit your preset, else to insert custom c: ")
-		if preset in presets.keys(): #se esiste il preset digitato
-			real_c = presets[preset][0]
-			imag_c = presets[preset][1]
-		else: #altrimenti ricomincia
-			julia(exp,draw)
-			return
-	else:
-		real_c = float(real_c)
-		imag_c = float(raw_input("imag c: "))
-		
+
+	# unpacking coordinate
+	x_min = coordinates[0]
+	x_max = coordinates[1]
+	y_min = coordinates[2]
+	y_max = coordinates[3]
+
+	# chiede le componenti di C
+	real_c = float(raw_input("real c: "))
+	imag_c = float(raw_input("imag c: "))	
 	c = complex(real_c,imag_c)
 	
 	start = time.time()
+
+	# insieme di Julia. Praticamente uguale a mandelbrot, a parte la C.
 	for x in range(dimension):
-		t = x/(dimension/3.0) - 2 #temporary var. per risparmiare calcolo
+		c_re = x / (dimension / float(x_max - x_min) ) + x_min
+
 		for y in range(dimension):
-			z = complex(t, y /(dimension/3.0) - 1.5)
+			c_im = y_max - y / (dimension / float(y_max - y_min))
+
+			z = complex(c_re, c_im)
+			
 			for i in range(T):
-				z = z**exp + c #la forumla ricorsiva
-				if abs(z) >= 2: #se divergente
-					draw.point((x,y),fill=color(i)) #colora in base a divergenza
+				z = z**exp + c
+				if abs(z) >= 2:
+					draw.point((x,y),fill=clz.log_color(i, T))
 					break
-				#sennò lascialo bianco (formerà la forma interna del frattale)
-	print time.time()-start, "\n\nNUOVO FRATTALE:"
+				
+	print time.time()-start
 
-
-def prompt():
-	''' gestore delle funzioni '''
-	global dimension
-	
-	print "+---------------------------------+"
-	print "|Fractals generator.              |"
-	print "|Draw fractals with us!           |"
-	print "+---------------------------------+"
-	
-	while True:
-		#manca la gestione degli errori ma vabe... confido in voi
-		#dimension = int(raw_input("dimensions: "))
-		is_mandel = raw_input("(m)andelbrot or (j)ulia: ")
-		starting_exp = int(raw_input("starting e: "))	#per generare più immagini
-														#con exp diversi.
-		final_exp = int(raw_input("final e: "))
-		
-		if is_mandel == "m":
-			mandel = True
-		else:
-			mandel = False
-		
-		gen_cols()
-		
-		for e in range(starting_exp, final_exp+1): #crea le immagini. 
-			im = Image.new("RGB", (dimension,dimension), "white")
-			draw = ImageDraw.Draw(im) #necessari per disegnare un'immagine
-			if mandel:
-				mandela(draw, e, (x_min, x_max, y_min, y_max) )
-				im.save("mandelbrot_exp" + str(e) + ".jpg") 
-			else:
-				julia(draw, e)
-				im.save("julia_exp" + str(e) + ".jpg") 
-					
-#prompt()
+# ----------------------------------
 
 class Fractaland(cmd.Cmd):
 	""" Fractaland """
@@ -184,6 +147,11 @@ class Fractaland(cmd.Cmd):
 		global E
 		
 		E = int(exp)
+
+	def do_status(self, args):
+		print "Exponent: ", E
+		print "Bailout: ", T
+		print "Size: ", dimension
 		
 
 	def do_mandela(self, args):
@@ -205,6 +173,24 @@ class Fractaland(cmd.Cmd):
 			
 		im.save("mandelbrot_exp" + str(E) + ".jpg")
 
+	def do_julia(self, args):
+		im = Image.new("RGB", (dimension,dimension), "white")
+		draw = ImageDraw.Draw(im)
+
+		values = args.split(" ")
+
+		# se non sono passati argomenti, lascia quelli di default
+		if values != [""]:
+			tokens = list()
+			
+			for parameter in values:
+				tokens.append(float(parameter))
+			
+			julia(draw, E, tokens)
+		else:
+			julia(draw, E)
+			
+		im.save("julia_exp" + str(E) + ".jpg")
 		
 	def do_quit(self, *args):
 		''' quit
