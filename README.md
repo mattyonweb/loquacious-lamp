@@ -1,2 +1,2 @@
 # loquacious-lamp
-euler project and other things
+Fractals and other things
